@@ -7,6 +7,7 @@ from app.models.alert import Alert
 from app.models.metric import Metric
 from app.services.alerts import evaluate_metric
 from app.services.monitoring import create_metric
+from app.utils.errors import error_response
 
 
 api = Blueprint("api", __name__)
@@ -33,9 +34,11 @@ def ingest_metric():
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "error": "Request body must contain valid JSON"
-        }), 400
+        return error_response(
+            "INVALID_JSON",
+            "Request body must contain valid JSON",
+            400,
+        )
 
     try:
         metric = create_metric(data)
@@ -105,9 +108,11 @@ def ingest_metric():
         }), 201
 
     except ValueError as exc:
-        return jsonify({
-            "error": str(exc)
-        }), 400
+        return error_response(
+            "VALIDATION_ERROR",
+            str(exc),
+            400,
+        )
 
     except Exception:
         db.session.rollback()
@@ -116,9 +121,11 @@ def ingest_metric():
             "Unexpected error while ingesting metric"
         )
 
-        return jsonify({
-            "error": "Internal server error"
-        }), 500
+        return error_response(
+            "INTERNAL_SERVER_ERROR",
+            "Internal server error",
+            500,
+        )
 
 
 @api.get("/metrics")
@@ -144,9 +151,11 @@ def get_metric(metric_id):
     metric = db.session.get(Metric, metric_id)
 
     if metric is None:
-        return jsonify({
-            "error": "Metric not found"
-        }), 404
+        return error_response(
+            "METRIC_NOT_FOUND",
+            "Metric not found",
+            404,
+        )
 
     return jsonify(metric.to_dict())
 
@@ -156,9 +165,11 @@ def evaluate():
     data = request.get_json(silent=True)
 
     if not data:
-        return jsonify({
-            "error": "Request body must contain valid JSON"
-        }), 400
+        return error_response(
+            "INVALID_JSON",
+            "Request body must contain valid JSON",
+            400,
+        )
 
     try:
         metric = create_metric(data)
@@ -170,9 +181,11 @@ def evaluate():
         })
 
     except ValueError as exc:
-        return jsonify({
-            "error": str(exc)
-        }), 400
+        return error_response(
+            "VALIDATION_ERROR",
+            str(exc),
+            400,
+        )
 
 
 @api.get("/alerts")
@@ -198,9 +211,11 @@ def get_alert(alert_id):
     alert = db.session.get(Alert, alert_id)
 
     if alert is None:
-        return jsonify({
-            "error": "Alert not found"
-        }), 404
+        return error_response(
+            "ALERT_NOT_FOUND",
+            "Alert not found",
+            404,
+        )
 
     return jsonify(alert.to_dict())
 
@@ -210,40 +225,50 @@ def update_alert_status(alert_id):
     alert = db.session.get(Alert, alert_id)
 
     if alert is None:
-        return jsonify({
-            "error": "Alert not found"
-        }), 404
+        return error_response(
+            "ALERT_NOT_FOUND",
+            "Alert not found",
+            404,
+        )
 
     data = request.get_json(silent=True)
 
     if not data or "status" not in data:
-        return jsonify({
-            "error": "Request must contain a status"
-        }), 400
+        return error_response(
+            "INVALID_REQUEST",
+            "Request must contain a status",
+            400,
+        )
 
     new_status = str(data["status"]).upper().strip()
 
     if new_status not in {"OPEN", "ACKNOWLEDGED", "RESOLVED"}:
-        return jsonify({
-            "error": "Invalid status. Use OPEN, ACKNOWLEDGED, or RESOLVED"
-        }), 400
+        return error_response(
+            "INVALID_STATUS",
+            "Invalid status. Use OPEN, ACKNOWLEDGED, or RESOLVED",
+            400,
+        )
 
     current_status = alert.status
 
     if new_status == current_status:
-        return jsonify({
-            "error": f"Alert is already {current_status}"
-        }), 409
+        return error_response(
+            "INVALID_STATE",
+            f"Alert is already {current_status}",
+            409,
+        )
 
     allowed_transitions = ALLOWED_STATUS_TRANSITIONS[current_status]
 
     if new_status not in allowed_transitions:
-        return jsonify({
-            "error": (
+        return error_response(
+            "INVALID_TRANSITION",
+            (
                 f"Invalid status transition: "
                 f"{current_status} -> {new_status}"
-            )
-        }), 409
+            ),
+            409,
+        )
 
     alert.status = new_status
 
@@ -267,6 +292,8 @@ def update_alert_status(alert_id):
             alert_id,
         )
 
-        return jsonify({
-            "error": "Internal server error"
-        }), 500
+        return error_response(
+            "INTERNAL_SERVER_ERROR",
+            "Internal server error",
+            500,
+        )

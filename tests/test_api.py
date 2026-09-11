@@ -37,7 +37,7 @@ def test_reject_missing_fields(client):
     )
 
     assert response.status_code == 400
-    assert "Missing required fields" in response.get_json()["error"]
+    assert "Missing required fields" in response.get_json()["error"]["message"]
 
 
 def test_reject_non_numeric_value(client):
@@ -51,7 +51,7 @@ def test_reject_non_numeric_value(client):
     )
 
     assert response.status_code == 400
-    assert response.get_json()["error"] == "Metric value must be numeric"
+    assert response.get_json()["error"]["message"] == "Metric value must be numeric"
 
 
 def test_cpu_warning_alert(client):
@@ -277,7 +277,7 @@ def test_reject_invalid_alert_transition(client):
     )
 
     assert invalid_response.status_code == 409
-    assert "Invalid status transition" in invalid_response.get_json()["error"]
+    assert "Invalid status transition" in invalid_response.get_json()["error"]["message"]
 
 
 def test_invalid_alert_status(client):
@@ -298,18 +298,49 @@ def test_invalid_alert_status(client):
     )
 
     assert invalid_response.status_code == 400
-    assert "Invalid status" in invalid_response.get_json()["error"]
+    assert "Invalid status" in invalid_response.get_json()["error"]["message"]
 
 
 def test_missing_metric_returns_404(client):
     response = client.get("/api/metrics/9999")
 
     assert response.status_code == 404
-    assert response.get_json()["error"] == "Metric not found"
+    assert response.get_json()["error"]["message"] == "Metric not found"
 
 
 def test_missing_alert_returns_404(client):
     response = client.get("/api/alerts/9999")
 
     assert response.status_code == 404
-    assert response.get_json()["error"] == "Alert not found"
+    assert response.get_json()["error"]["message"] == "Alert not found"
+
+def test_validation_error_contains_code_and_request_id(client):
+    response = client.post(
+        "/api/metrics",
+        json={
+            "service": "payment-api",
+            "metric_name": "cpu_usage",
+            "value": "invalid",
+        },
+    )
+
+    body = response.get_json()
+
+    assert response.status_code == 400
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["message"] == "Metric value must be numeric"
+    assert body["error"]["request_id"]
+
+
+def test_custom_request_id_is_preserved(client):
+    response = client.get(
+        "/api/health",
+        headers={"X-Request-ID": "test-request-123"},
+    )
+
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "test-request-123"
+    assert body["status"] == "healthy"
+
