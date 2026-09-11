@@ -1,0 +1,22 @@
+services:
+  monitorbridge:
+    build: .
+    container_name: monitorbridge
+    ports:
+      - "5000:5000"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: sqlite:///monitorbridge.db
+      ALERT_THRESHOLD: "0.75"
+    volumes:
+      - monitorbridge-data:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  monitorbridge-data:
