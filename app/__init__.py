@@ -4,6 +4,7 @@ from app.config import Config
 from app.database import db
 from app.utils.request_id import generate_request_id
 from app.utils.logging_config import configure_logging
+from app.docs import configure_swagger
 
 
 def create_app(test_config=None):
@@ -30,6 +31,7 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     configure_logging()
+    configure_swagger(app)
 
     db.init_app(app)
 

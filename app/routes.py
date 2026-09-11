@@ -297,3 +297,14 @@ def update_alert_status(alert_id):
             "Internal server error",
             500,
         )
+
+@api.route("/openapi.json", methods=["GET"])
+def openapi_spec():
+    from flasgger import Swagger
+    from flask import current_app
+
+    swagger = current_app.extensions.get("swagger")
+    if swagger is None:
+        return jsonify({"error": "OpenAPI specification unavailable"}), 500
+
+    return jsonify(swagger.get_apispecs())
